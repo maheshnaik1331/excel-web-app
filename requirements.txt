@@ -1,0 +1,6 @@
+Flask
+pandas
+openpyxl
+flask-cors
+xlrd
+importlib-metadata
