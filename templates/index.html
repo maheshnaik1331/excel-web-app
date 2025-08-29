@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Deccan Transcon Data Processor</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    /* Custom scrollbar */
+    #column-checkboxes::-webkit-scrollbar {
+      width: 8px;
+    }
+    #column-checkboxes::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    #column-checkboxes::-webkit-scrollbar-thumb {
+      background-color: #3b82f6;
+      border-radius: 4px;
+    }
+  </style>
+</head>
+
+<body class="bg-blue-50 min-h-screen">
+
+  <!-- Header -->
+  <header class="w-full py-12 flex flex-col items-center bg-white drop-shadow-md">
+    <img src="static/Logo.png" alt="Deccan Transcon Logo" class="h-20 w-20 mb-4 object-contain rounded-full border border-blue-500" />
+    <h1 class="text-4xl font-extrabold text-blue-900">Deccan Transcon Data Processor</h1>
+    <p class="mt-2 text-lg text-blue-700 font-medium max-w-xl text-center px-4">
+      Merge, Map, and Customize Your Data Reports with Ease
+    </p>
+  </header>
+
+  <main class="max-w-5xl mx-auto px-6 py-10 space-y-10">
+
+    <!-- Upload Section -->
+    <section class="bg-white rounded-lg shadow p-8 border border-blue-200">
+      <h2 class="text-2xl font-semibold text-blue-900 mb-6">Step 1: Upload Your Files</h2>
+
+      <div class="grid md:grid-cols-2 gap-10">
+        <!-- Source Files -->
+        <div>
+          <label for="source-files" class="block mb-3 font-semibold text-blue-800 text-lg">Source Files (Excel) <span class="font-normal text-sm">(Max 300)</span></label>
+          <label for="source-files" id="source-upload-label"
+            class="block h-40 border-2 border-dashed border-blue-400 rounded-lg flex flex-col justify-center items-center text-blue-600 cursor-pointer bg-blue-100 hover:bg-blue-200 transition select-none">
+            <span id="source-files-text" class="text-center text-lg font-semibold">Drag & drop or click to select</span>
+            <input type="file" id="source-files" class="hidden" multiple accept=".xls,.xlsx" />
+            <span id="source-files-count" class="mt-3 text-sm text-blue-600"></span>
+          </label>
+        </div>
+
+        <!-- Mapping File -->
+        <div>
+          <label for="mapping-file" class="block mb-3 font-semibold text-blue-800 text-lg">Depot Mapping File (Excel)</label>
+          <label for="mapping-file" id="mapping-upload-label"
+            class="block h-40 border-2 border-dashed border-blue-400 rounded-lg flex flex-col justify-center items-center text-blue-600 cursor-pointer bg-blue-100 hover:bg-blue-200 transition select-none">
+            <span id="mapping-file-text" class="text-center text-lg font-semibold">Drag & drop or click to select</span>
+            <input type="file" id="mapping-file" class="hidden" accept=".xls,.xlsx" />
+            <span id="mapping-file-name" class="mt-3 text-sm text-blue-600"></span>
+          </label>
+        </div>
+      </div>
+
+      <button id="process-btn"
+        class="mt-8 w-full py-4 bg-blue-700 hover:bg-blue-800 active:bg-blue-900 text-white text-xl font-bold rounded-lg shadow-md transition duration-300">
+        Process & Continue
+      </button>
+
+      <p id="error-message" class="mt-4 min-h-[1.25rem] text-red-600 font-semibold text-center"></p>
+    </section>
+
+    <!-- Customize Report Section -->
+    <section id="column-selection" class="hidden bg-white rounded-lg shadow p-8 border border-blue-200">
+      <h2 class="text-2xl font-semibold text-blue-900 mb-5">Step 2: Customize Your Report</h2>
+
+      <div class="flex items-center mb-5 space-x-4">
+        <span class="text-blue-800 font-medium">Select Columns to Include:</span>
+        <button id="select-all-btn" class="ml-auto px-4 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded focus:outline-none focus:ring-2 focus:ring-blue-500">
+          Select All
+        </button>
+      </div>
+
+      <div id="column-checkboxes" class="max-h-56 overflow-y-auto rounded border border-blue-300 bg-blue-50 p-4"></div>
+
+      <button id="preview-btn"
+        class="mt-8 w-full py-4 bg-green-600 hover:bg-green-700 active:bg-green-800 text-white text-xl font-bold rounded-lg shadow-md transition duration-300">
+        Show Preview
+      </button>
+    </section>
+
+    <!-- Preview Section -->
+    <section id="preview-section" class="hidden bg-white rounded-lg shadow p-8 border border-blue-200">
+      <h2 class="text-2xl font-semibold text-blue-900 mb-5">Step 3: Review & Download</h2>
+
+      <div id="preview-table-wrapper" class="overflow-auto max-h-96 border border-blue-400 rounded">
+        <table id="preview-table" class="min-w-full text-blue-900 text-left text-sm font-medium"></table>
+      </div>
+
+      <button id="download-btn"
+        class="mt-8 w-full py-4 bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white text-xl font-bold rounded-lg shadow-md transition duration-300">
+        Download Selected Data as Excel
+      </button>
+    </section>
+
+  </main>
+
+  <footer class="text-center text-blue-600 font-light py-6">
+    &copy; 2025 Deccan Transcon
+  </footer>
+
+  <script>
+    let taskId = null;
+    let allColumns = [];
+    let currentPreviewData = [];
+
+    const errorMessage = document.getElementById('error-message');
+
+    function showError(msg) {
+      errorMessage.textContent = msg;
+    }
+    function clearError() {
+      errorMessage.textContent = '';
+    }
+
+    function toggleProcessing(isProcessing) {
+      document.getElementById('process-btn').disabled = isProcessing;
+      document.getElementById('preview-btn').disabled = isProcessing;
+      document.getElementById('download-btn').disabled = isProcessing;
+    }
+
+    // Drag & drop UI for source files
+    const sourceLabel = document.getElementById('source-upload-label');
+    const sourceInput = document.getElementById('source-files');
+    sourceLabel.addEventListener('dragover', e => {
+      e.preventDefault();
+      sourceLabel.classList.add('drag-active');
+    });
+    sourceLabel.addEventListener('dragleave', e => {
+      e.preventDefault();
+      sourceLabel.classList.remove('drag-active');
+    });
+    sourceLabel.addEventListener('drop', e => {
+      e.preventDefault();
+      sourceLabel.classList.remove('drag-active');
+      sourceInput.files = e.dataTransfer.files;
+      updateSourceFilesText();
+    });
+    sourceInput.addEventListener('change', updateSourceFilesText);
+    function updateSourceFilesText() {
+      const count = sourceInput.files.length;
+      document.getElementById('source-files-count').textContent = count > 0 ? `${count} file(s) selected.` : '';
+    }
+
+    // Drag & drop UI for mapping file
+    const mappingLabel = document.getElementById('mapping-upload-label');
+    const mappingInput = document.getElementById('mapping-file');
+    mappingLabel.addEventListener('dragover', e => {
+      e.preventDefault();
+      mappingLabel.classList.add('drag-active');
+    });
+    mappingLabel.addEventListener('dragleave', e => {
+      e.preventDefault();
+      mappingLabel.classList.remove('drag-active');
+    });
+    mappingLabel.addEventListener('drop', e => {
+      e.preventDefault();
+      mappingLabel.classList.remove('drag-active');
+      mappingInput.files = e.dataTransfer.files;
+      updateMappingFileText();
+    });
+    mappingInput.addEventListener('change', updateMappingFileText);
+    function updateMappingFileText() {
+      const file = mappingInput.files[0];
+      document.getElementById('mapping-file-name').textContent = file ? file.name : '';
+    }
+
+    // Process files
+    document.getElementById('process-btn').addEventListener('click', async () => {
+      clearError();
+      if (!sourceInput.files.length) return showError('Please select at least one source Excel file.');
+      if (sourceInput.files.length > 300) return showError('Maximum 300 source files allowed.');
+      if (!mappingInput.files.length) return showError('Please select the mapping Excel file.');
+
+      let formData = new FormData();
+      for (let f of sourceInput.files) formData.append('source_files', f);
+      formData.append('mapping_file', mappingInput.files[0]);
+
+      try {
+        toggleProcessing(true);
+        let res = await fetch('/api/process-files', { method: 'POST', body: formData });
+        let data = await res.json();
+        if (!res.ok) {
+          showError(data.error || 'Failed to process files.');
+          toggleProcessing(false);
+          return;
+        }
+        taskId = data.taskId;
+        allColumns = data.columns;
+        renderColumnCheckboxes(allColumns);
+        document.getElementById('column-selection').classList.remove('hidden');
+        document.getElementById('preview-section').classList.add('hidden');
+        toggleProcessing(false);
+      } catch (err) {
+        showError('Unexpected error: ' + err.message);
+        toggleProcessing(false);
+      }
+    });
+
+    // Render column checkboxes
+    function renderColumnCheckboxes(columns) {
+      const container = document.getElementById('column-checkboxes');
+      container.innerHTML = '';
+      columns.forEach(col => {
+        const label = document.createElement('label');
+        label.className = 'inline-flex items-center space-x-2 mb-2 mr-6';
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.value = col;
+        checkbox.checked = true;
+        checkbox.className = 'form-checkbox h-5 w-5 text-blue-600';
+        const span = document.createElement('span');
+        span.textContent = col;
+        span.className = 'select-none text-gray-900';
+        label.appendChild(checkbox);
+        label.appendChild(span);
+        container.appendChild(label);
+      });
+    }
+
+    // Preview data
+    document.getElementById('preview-btn').addEventListener('click', async () => {
+      clearError();
+      if (!taskId) return showError('Please process files first.');
+      const selectedCols = Array.from(document.querySelectorAll('#column-checkboxes input[type=checkbox]:checked')).map(cb => cb.value);
+      if (selectedCols.length === 0) return showError('Select at least one column to preview.');
+
+      try {
+        toggleProcessing(true);
+        let res = await fetch('/api/generate-report', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({taskId, columns: selectedCols})
+        });
+        let data = await res.json();
+        if (!res.ok) {
+          showError(data.error || 'Failed to generate preview.');
+          toggleProcessing(false);
+          return;
+        }
+        currentPreviewData = data.reportData;
+        renderPreviewTable(selectedCols, currentPreviewData);
+        document.getElementById('preview-section').classList.remove('hidden');
+        toggleProcessing(false);
+      } catch(e) {
+        showError('Unexpected error: ' + e.message);
+        toggleProcessing(false);
+      }
+    });
+
+    // Download file
+    document.getElementById('download-btn').addEventListener('click', async () => {
+      clearError();
+      if (!currentPreviewData.length) return showError('No data to download. Generate preview first.');
+      try {
+        toggleProcessing(true);
+        let res = await fetch('/api/download-report', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({reportData: currentPreviewData})
+        });
+        if (!res.ok) {
+          let data = await res.json();
+          showError(data.error || 'Failed to download file.');
+          toggleProcessing(false);
+          return;
+        }
+        let blob = await res.blob();
+        let url = window.URL.createObjectURL(blob);
+        let a = document.createElement('a');
+        a.href = url;
+        a.download = "final_report.xlsx";
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        window.URL.revokeObjectURL(url);
+        toggleProcessing(false);
+      } catch(e) {
+        showError('Unexpected error: ' + e.message);
+        toggleProcessing(false);
+      }
+    });
+
+    // Render preview table
+    function renderPreviewTable(columns, data) {
+      const table = document.getElementById('preview-table');
+      table.innerHTML = '';
+
+      // Header
+      let thead = document.createElement('thead');
+      let tr = document.createElement('tr');
+      columns.forEach(col => {
+        let th = document.createElement('th');
+        th.textContent = col;
+        th.className = 'sticky top-0 bg-blue-600 text-white border border-blue-700 p-3';
+        tr.appendChild(th);
+      });
+      thead.appendChild(tr);
+      table.appendChild(thead);
+
+      // Body
+      let tbody = document.createElement('tbody');
+      data.forEach((row, idx) => {
+        let tr = document.createElement('tr');
+        tr.className = idx % 2 === 0 ? 'bg-white' : 'bg-blue-50';
+        columns.forEach(col => {
+          let td = document.createElement('td');
+          td.textContent = row[col] || '';
+          td.className = 'border border-blue-200 p-2 whitespace-pre-wrap max-w-xs';
+          tr.appendChild(td);
+        });
+        tbody.appendChild(tr);
+      });
+      table.appendChild(tbody);
+    }
+  </script>
+
+</body>
+
+</html>
