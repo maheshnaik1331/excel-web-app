@@ -3,4 +3,4 @@ pandas
 openpyxl
 flask-cors
 xlrd
-importlib-metadata
+gunicorn
