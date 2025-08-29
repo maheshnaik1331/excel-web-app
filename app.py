@@ -15,8 +15,9 @@ logger = logging.getLogger(__name__)
 
 processed_data_cache = {}
 
+# The HEADER_MAPPING dictionary is updated here
 HEADER_MAPPING = {
-    'Tank No.': ['tankno', 'tanknumber', 'tanknos', 'tankiso', 'tank', 'tanketcc', 'tank_no','Container No.', 'tank#'],
+    'Tank No.': ['tankno', 'tanknumber', 'tanknos', 'tankiso', 'tank', 'tanketcc', 'tank_no', 'Container No.', 'tank#'],
     'Tank Prefix': ['tankprefix', 'tank pref', 'tankpre', 'tank prefx', 'tankpreffix', 'tank_prefix'],
     'Tank Number Part': ['tanknum', 'tanknumberpart', 'tanknumber part', 'tank_number', 'tank num', 'tanknumpart'],
     'Depot-In Date': ['depotindate', 'dateintodepot', 'depotin', 'indate','In Date','Date in', 'movein'],
@@ -47,7 +48,8 @@ def normalize_headers(df):
     rename_map = {}
     for norm_col, original_col in normalized_col_map.items():
         for std_name, variants in HEADER_MAPPING.items():
-            normalized_variants = [v.lower() for v in variants]
+            # Normalize variants for comparison, including the new 'Container No.'
+            normalized_variants = [re.sub(r'[\s\-]+', '', v).lower() for v in variants]
             if norm_col in normalized_variants:
                 rename_map[original_col] = std_name
                 break
@@ -183,18 +185,23 @@ def process_files_route():
         for col in FINAL_COLUMNS_ORDER:
             if col not in final_df.columns:
                 final_df[col] = ""
+        
+        # Ensure final columns are ordered correctly before caching
+        final_columns_present = FINAL_COLUMNS_ORDER[:]
+        if 'Depot Details' in final_df.columns:
+            final_columns_present.append('Depot Details')
 
-        final_df = final_df[FINAL_COLUMNS_ORDER]
-
+        final_df = final_df[[col for col in final_columns_present if col in final_df.columns]]
+        
         final_df = final_df.astype(str).replace("nan", "null")
 
         task_id = str(uuid.uuid4())
         processed_data_cache[task_id] = final_df
 
         # Return columns with Depot Details appended for UI preview
-        columns = FINAL_COLUMNS_ORDER + ['Depot Details'] if 'Depot Details' in final_df.columns else FINAL_COLUMNS_ORDER
+        columns_for_ui = [col for col in final_df.columns if col in FINAL_COLUMNS_ORDER or col == 'Depot Details']
 
-        return jsonify({'taskId': task_id, 'columns': columns, 'message': 'Files processed successfully.'})
+        return jsonify({'taskId': task_id, 'columns': columns_for_ui, 'message': 'Files processed successfully.'})
     except Exception as e:
         import traceback
         logger.error(traceback.format_exc())
@@ -223,14 +230,16 @@ def download_report_route():
         return jsonify({'error': 'No data provided for download.'}), 400
     try:
         df_to_save = pd.DataFrame(report_data)
-        for col in FINAL_COLUMNS_ORDER:
-            if col not in df_to_save.columns:
-                df_to_save[col] = ""
-        # Always place Depot Details column last if exists
-        columns_ordered = FINAL_COLUMNS_ORDER[:]
-        if 'Depot Details' in df_to_save.columns:
+        
+        # Establish the base order
+        columns_ordered = [col for col in FINAL_COLUMNS_ORDER if col in df_to_save.columns]
+        
+        # Add Depot Details to the end if it exists
+        if 'Depot Details' in df_to_save.columns and 'Depot Details' not in columns_ordered:
             columns_ordered.append('Depot Details')
+
         df_to_save = df_to_save[columns_ordered]
+        
         output = io.BytesIO()
         with pd.ExcelWriter(output, engine='openpyxl') as writer:
             df_to_save.to_excel(writer, index=False, sheet_name='Final_Report')
@@ -246,4 +255,3 @@ if __name__ == '__main__':
     import os
     port = int(os.environ.get('PORT', 5000))
     app.run(host='0.0.0.0', port=port, debug=False)
-
