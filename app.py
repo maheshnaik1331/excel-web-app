@@ -16,10 +16,10 @@ logger = logging.getLogger(__name__)
 processed_data_cache = {}
 
 HEADER_MAPPING = {
-    'Tank No.': ['tankno', 'tanknumber', 'tanknos', 'tankiso', 'tank', 'tanketcc', 'tank_no','Container no', 'tank#'],
+    'Tank No.': ['tankno', 'tanknumber', 'tanknos', 'tankiso', 'tank', 'tanketcc', 'tank_no','Container No.', 'tank#'],
     'Tank Prefix': ['tankprefix', 'tank pref', 'tankpre', 'tank prefx', 'tankpreffix', 'tank_prefix'],
     'Tank Number Part': ['tanknum', 'tanknumberpart', 'tanknumber part', 'tank_number', 'tank num', 'tanknumpart'],
-    'Depot-In Date': ['depotindate', 'dateintodepot', 'depotin', 'indate','In Date', 'movein'],
+    'Depot-In Date': ['depotindate', 'dateintodepot', 'depotin', 'indate','In Date','Date in', 'movein'],
     'Depot-Out Date': ['depotoutdate', 'dateoutofdepot', 'depotout', 'moveout'],
     'Available Date': ['availabledate', 'available', 'avdate'],
     'Status': ['status', 'currentstatus'],
